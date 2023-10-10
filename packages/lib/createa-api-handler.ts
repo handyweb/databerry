@@ -53,6 +53,8 @@ export function respond<T>(f: Handle<T>) {
 
       if (err instanceof ApiError) {
         message = err.message;
+      } else if ((err as any)?.message) {
+        message = (err as any).message;
       } else {
         message = (err as any).toString
           ? (err as any).toString()
