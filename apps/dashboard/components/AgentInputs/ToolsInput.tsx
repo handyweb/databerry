@@ -30,6 +30,8 @@ import {
   Prisma,
   ToolType,
 } from '@chaindesk/prisma';
+
+import APIToolForm from '../APIToolForm';
 type Props = {};
 
 const CreateDatastoreModal = dynamic(
@@ -95,6 +97,7 @@ function ToolsInput({}: Props) {
     useState(false);
 
   const newDatastoreModal = useModal();
+  const newApiToolForm = useModal();
 
   const getDatastoresQuery = useSWR<
     Prisma.PromiseReturnType<typeof getDatastores>
@@ -159,6 +162,23 @@ function ToolsInput({}: Props) {
           color="success"
           onClick={() => {
             newDatastoreModal.open();
+          }}
+        >
+          <AddCircleOutlineRoundedIcon />
+        </IconButton>
+      </ToolCard>
+
+      <ToolCard
+        id="42"
+        name={'API Tool'}
+        description={'Call an API endpoint from your Agent'}
+      >
+        <IconButton
+          size="sm"
+          variant="plain"
+          color="success"
+          onClick={() => {
+            newApiToolForm.open();
           }}
         >
           <AddCircleOutlineRoundedIcon />
@@ -234,6 +254,19 @@ function ToolsInput({}: Props) {
           </Button>
         </Stack>
       </newDatastoreModal.component>
+
+      <newApiToolForm.component
+        title="HTTP Tool"
+        description="Let your Agent call an HTTP endpoint."
+        dialogProps={{
+          sx: {
+            maxWidth: 'sm',
+            height: 'auto',
+          },
+        }}
+      >
+        <APIToolForm />
+      </newApiToolForm.component>
 
       <CreateDatastoreModal
         isOpen={isCreateDatastoreModalOpen}

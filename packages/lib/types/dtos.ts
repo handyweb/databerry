@@ -180,6 +180,17 @@ export const ChatResponse = z.object({
 
 export type ChatResponse = z.infer<typeof ChatResponse>;
 
+export const ToolSchema = z.object({
+  id: z.string().cuid().optional(),
+  type: z.nativeEnum(ToolType),
+  datastoreId: z.string().cuid().optional(),
+  name: z.string().trim().optional(),
+  description: z.string().trim().optional().nullable(),
+  config: z.object({}).optional(),
+});
+
+export type ToolSchema = z.infer<typeof ToolSchema>;
+
 export const CreateAgentSchema = z.object({
   id: z.string().trim().cuid().optional(),
   name: z.string().trim().optional(),
@@ -196,17 +207,7 @@ export const CreateAgentSchema = z.object({
   interfaceConfig: AgentInterfaceConfig.optional().nullable(),
   includeSources: z.boolean().optional().nullable(),
   restrictKnowledge: z.boolean().optional().nullable(),
-  tools: z
-    .array(
-      z.object({
-        id: z.string().cuid().optional(),
-        type: z.nativeEnum(ToolType),
-        datastoreId: z.string().cuid().optional(),
-        name: z.string().trim().optional(),
-        description: z.string().trim().optional().nullable(),
-      })
-    )
-    .optional(),
+  tools: z.array(ToolSchema).optional(),
   // .max(1),
   handle: z
     .string()
