@@ -1,3 +1,4 @@
+import { ChatOpenAI } from 'langchain/chat_models/openai';
 import { AIMessage, HumanMessage } from 'langchain/schema';
 
 import { Agent, Datastore, Message, PromptType, Tool } from '@chaindesk/prisma';
@@ -37,7 +38,229 @@ export default class AgentManager {
     this.topK = topK;
   }
 
-  async query({
+  async query(props: AgentManagerProps) {
+    const nbToolsOtherThanDatastore =
+      this.agent.tools.filter((each) => each.type !== 'datastore')?.length || 0;
+
+    const prevMessages = (props.history || [])?.map((each) => {
+      if (each.from === 'human') {
+        return new HumanMessage(each.text);
+      }
+      return new AIMessage(each.text);
+    });
+
+    // if (nbToolsOtherThanDatastore <= 0) {
+    if (false) {
+      return this.defaultQuery(props);
+    } else {
+      const model = new ChatOpenAI({
+        modelName: 'gpt-4',
+        temperature: 0,
+        streaming: Boolean(props.stream),
+        callbacks: [
+          {
+            handleLLMNewToken: props.stream,
+          },
+        ],
+      });
+
+      const res = await model.call(
+        [...prevMessages, new HumanMessage(props.input)],
+        {
+          functions: [
+            {
+              name: 'getOrderInformation',
+              description: 'Get order information',
+              parameters: {
+                type: 'object',
+                properties: {
+                  orderId: {
+                    type: 'string',
+                  },
+                },
+                required: ['orderId'],
+              },
+            },
+            {
+              name: 'queryKnowledgeBase',
+              description:
+                'Answer questions related to a custom knowledge base',
+              parameters: {
+                type: 'object',
+                properties: {},
+              },
+            },
+          ],
+        }
+      );
+
+      console.log('res----------->', res);
+
+      const json = JSON.parse(
+        res?.additional_kwargs?.function_call?.arguments || `{}`
+      );
+
+      const action = res?.additional_kwargs?.function_call?.name;
+
+      const streamModel = new ChatOpenAI({
+        modelName: 'gpt-4',
+        temperature: 0,
+        streaming: Boolean(props.stream),
+        callbacks: [
+          {
+            handleLLMNewToken: props.stream,
+          },
+        ],
+      });
+
+      if (action === 'getOrderInformation') {
+        // TODO: fetch order information
+
+        const orderId = json?.orderId;
+
+        const orders = [
+          {
+            id: '111',
+            status: 'in_transit',
+          },
+          {
+            id: '222',
+            status: 'delivered',
+          },
+        ];
+
+        const orderData = orders.find((one) => one?.id === orderId);
+
+        return {
+          answer: (
+            await streamModel.call(
+              [
+                ...prevMessages,
+                new HumanMessage(`
+
+                Goal:
+                Get order information
+
+                Fetched Data:
+                ${
+                  orderData
+                    ? JSON.stringify(orderData, null, 2)
+                    : 'No data found'
+                }
+
+                Question:
+                ${props.input}
+
+                Answer politely:
+              `),
+              ],
+              {}
+            )
+          )?.text?.trim(),
+        };
+      } else if (action === 'queryKnowledgeBase') {
+        return this.defaultQuery(props);
+      }
+
+      const answer = res?.content?.trim();
+
+      return {
+        answer,
+        sources: [],
+      };
+
+      // async runChain(query: string) {
+      //   const { OpenAI } = await import('langchain/llms/openai');
+      //   const { initializeAgentExecutor } = await import('langchain/agents');
+      //   const { DynamicTool, ChainTool, Tool } = await import('langchain/tools');
+      //   const { PromptTemplate } = await import('langchain/prompts');
+      //   const model = new OpenAI({
+      //     temperature: 0,
+      //     modelName: 'gpt-3.5-turbo',
+      //   });
+
+      //   const tools: LangchainTool[] = [];
+
+      //   for (const tool of this.agent.tools) {
+      //     if (tool.type === ToolType.datastore) {
+      //       const t = new DynamicTool({
+      //         name: tool?.datastore?.name!,
+      //         description: `QA - useful for when you need to ask questions about: ${
+      //           tool?.datastore?.name
+      //         } - ${tool?.datastore?.description!}}}`,
+      //         func: async () => {
+      //           const { answer } = await chat({
+      //             datastore: tool.datastore as any,
+      //             query: query,
+      //           });
+
+      //           return answer;
+      //         },
+      //       });
+      //       t.returnDirect = true;
+
+      //       // const qaTool = new ChainTool({
+      //       //   name: tool?.datastore?.name!,
+      //       //   description: tool?.datastore?.description!,
+      //       //   chain: await loadDatastoreChain({
+      //       //     datastore: tool?.datastore as any,
+      //       //   }),
+      //       // });
+
+      //       // tools.push(qaTool);
+
+      //       tools.push(t);
+      //     }
+      //   }
+
+      //   console.log('TOOLS LENGTH', tools.length);
+
+      //   const prompt = ZeroShotAgent.createPrompt(tools, {
+      //     prefix: `Answer the following questions as best you can, but speaking as a customer support agent might speak AND ANSWER ALWAYS USING ALEXANDRINE. You have access to the following tools:`,
+      //     // suffix: `Begin! Remember to speak as a pirate when giving your final answer. Use lots of "Args"`,
+      //   });
+
+      //   const chatPrompt = ChatPromptTemplate.fromPromptMessages([
+      //     new SystemMessagePromptTemplate(prompt),
+      //     HumanMessagePromptTemplate.fromTemplate(`{input}
+
+      // This was your previous work (but I haven't seen any of it! I only see what you return as final answer):
+      // {agent_scratchpad}`),
+      //   ]);
+
+      //   const llm = new ChatOpenAI({});
+
+      //   const llmChain = new LLMChain({
+      //     prompt: chatPrompt,
+      //     llm,
+      //   });
+
+      //   const agent = new ZeroShotAgent({
+      //     llmChain,
+      //     allowedTools: tools.map((tool) => tool.name),
+      //   });
+
+      //   const executor = AgentExecutor.fromAgentAndTools({ agent, tools });
+
+      //   const response = await executor.run(query);
+
+      //   // const executor = await initializeAgentExecutor(
+      //   //   tools,
+      //   //   model,
+      //   //   'zero-shot-react-description'
+      //   // );
+
+      //   // const result = await executor.call({ input: query });
+
+      //   console.log('OUTPUT', response);
+
+      //   return response;
+      //   // return result.output as string;
+      // }
+    }
+  }
+
+  async defaultQuery({
     input,
     stream,
     history,
@@ -63,10 +286,10 @@ export default class AgentManager {
     if (_promptType === PromptType.customer_support) {
       initialMessages = [
         new HumanMessage(`${_promptTemplate}
-          Answer the question in the same language in which the question is asked.
-          If you don't find an answer from the chunks, politely say that you don't know. Don't try to make up an answer.
-          Give answer in the markdown rich format with proper bolds, italics etc as per heirarchy and readability requirements.
-              `),
+      Answer the question in the same language in which the question is asked.
+      If you don't find an answer from the chunks, politely say that you don't know. Don't try to make up an answer.
+      Give answer in the markdown rich format with proper bolds, italics etc as per heirarchy and readability requirements.
+          `),
         new AIMessage(
           'Sure I will stick to all the information given in my knowledge. I won’t answer any question that is outside my knowledge. I won’t even attempt to give answers that are outside of context. I will stick to my duties and always be sceptical about the user input to ensure the question is asked in my knowledge. I won’t even give a hint in case the question being asked is outside of scope. I will answer in the same language in which the question is asked'
         ),
@@ -98,12 +321,12 @@ export default class AgentManager {
           return promptInject({
             // template: CUSTOMER_SUPPORT,
             template: `YOUR KNOWLEDGE:
-              {context}
-              END OF YOUR KNOWLEDGE
+          {context}
+          END OF YOUR KNOWLEDGE
 
-              Question: {query}
+          Question: {query}
 
-              Answer: `,
+          Answer: `,
             query: _query,
             context: createPromptContext(
               chunks.filter(
@@ -140,93 +363,4 @@ export default class AgentManager {
       initialMessages,
     });
   }
-
-  // async runChain(query: string) {
-  //   const { OpenAI } = await import('langchain/llms/openai');
-  //   const { initializeAgentExecutor } = await import('langchain/agents');
-  //   const { DynamicTool, ChainTool, Tool } = await import('langchain/tools');
-  //   const { PromptTemplate } = await import('langchain/prompts');
-  //   const model = new OpenAI({
-  //     temperature: 0,
-  //     modelName: 'gpt-3.5-turbo',
-  //   });
-
-  //   const tools: LangchainTool[] = [];
-
-  //   for (const tool of this.agent.tools) {
-  //     if (tool.type === ToolType.datastore) {
-  //       const t = new DynamicTool({
-  //         name: tool?.datastore?.name!,
-  //         description: `QA - useful for when you need to ask questions about: ${
-  //           tool?.datastore?.name
-  //         } - ${tool?.datastore?.description!}}}`,
-  //         func: async () => {
-  //           const { answer } = await chat({
-  //             datastore: tool.datastore as any,
-  //             query: query,
-  //           });
-
-  //           return answer;
-  //         },
-  //       });
-  //       t.returnDirect = true;
-
-  //       // const qaTool = new ChainTool({
-  //       //   name: tool?.datastore?.name!,
-  //       //   description: tool?.datastore?.description!,
-  //       //   chain: await loadDatastoreChain({
-  //       //     datastore: tool?.datastore as any,
-  //       //   }),
-  //       // });
-
-  //       // tools.push(qaTool);
-
-  //       tools.push(t);
-  //     }
-  //   }
-
-  //   console.log('TOOLS LENGTH', tools.length);
-
-  //   const prompt = ZeroShotAgent.createPrompt(tools, {
-  //     prefix: `Answer the following questions as best you can, but speaking as a customer support agent might speak AND ANSWER ALWAYS USING ALEXANDRINE. You have access to the following tools:`,
-  //     // suffix: `Begin! Remember to speak as a pirate when giving your final answer. Use lots of "Args"`,
-  //   });
-
-  //   const chatPrompt = ChatPromptTemplate.fromPromptMessages([
-  //     new SystemMessagePromptTemplate(prompt),
-  //     HumanMessagePromptTemplate.fromTemplate(`{input}
-
-  // This was your previous work (but I haven't seen any of it! I only see what you return as final answer):
-  // {agent_scratchpad}`),
-  //   ]);
-
-  //   const llm = new ChatOpenAI({});
-
-  //   const llmChain = new LLMChain({
-  //     prompt: chatPrompt,
-  //     llm,
-  //   });
-
-  //   const agent = new ZeroShotAgent({
-  //     llmChain,
-  //     allowedTools: tools.map((tool) => tool.name),
-  //   });
-
-  //   const executor = AgentExecutor.fromAgentAndTools({ agent, tools });
-
-  //   const response = await executor.run(query);
-
-  //   // const executor = await initializeAgentExecutor(
-  //   //   tools,
-  //   //   model,
-  //   //   'zero-shot-react-description'
-  //   // );
-
-  //   // const result = await executor.call({ input: query });
-
-  //   console.log('OUTPUT', response);
-
-  //   return response;
-  //   // return result.output as string;
-  // }
 }
