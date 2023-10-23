@@ -3,9 +3,28 @@ import { Button, Chip, CircularProgress, ExtendButton } from '@mui/joy';
 import { SxProps } from '@mui/joy/styles/types';
 import { useState } from 'react';
 
-import type { ConversationStatus } from '@chaindesk/prisma';
+import { ConversationStatus } from '@chaindesk/prisma';
 
 import { API_URL } from './ChatBubble';
+
+export const updateConversationStatus = async (
+  conversationId: string,
+  status: ConversationStatus
+) => {
+  const response = await fetch(
+    `${API_URL}/api/conversations/${conversationId}`,
+    {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        status,
+      }),
+    }
+  );
+  return response;
+};
 
 const ResolveButton = ({
   conversationId,
@@ -23,21 +42,13 @@ const ResolveButton = ({
   const handleResolve = async () => {
     try {
       setPending(true);
-      const response = await fetch(
-        `${API_URL}/api/conversations/${conversationId}`,
-        {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            status: 'RESOLVED' as ConversationStatus,
-          }),
-        }
+      const response = await updateConversationStatus(
+        conversationId,
+        ConversationStatus.RESOLVED
       );
-      createNewConversation();
       if (response.ok) {
         setResolved(true);
+        createNewConversation();
       }
     } catch (e) {
     } finally {
