@@ -80,13 +80,13 @@ services:
     image: 'minio/minio:latest'
     ports:
       - '9900:9900'
-      - '9090:9090'
+      - '9990:9990'
     environment:
       MINIO_ROOT_USER: 'root'
       MINIO_ROOT_PASSWORD: 'password'
     volumes:
       - 'minio:/data/minio'
-    command: minio server /data/minio --console-address ":9090"
+    command: minio server /data/minio --console-address ":9990"
 volumes:
   pgdb-data:
   pgadmin-data:
