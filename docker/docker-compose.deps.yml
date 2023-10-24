@@ -36,7 +36,7 @@ services:
     entrypoint: >
       /bin/sh -c "
       sleep 10;
-      /usr/bin/mc config host add minio http://minio:9000 root password;
+      /usr/bin/mc config host add minio http://minio:9900 root password;
       /usr/bin/mc mb minio/chaindesk;
       /usr/bin/mc anonymous set public minio/chaindesk;
       exit 0;

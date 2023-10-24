@@ -181,7 +181,7 @@ import { GoogleDriveManager } from '@chaindesk/lib/google-drive-manager';
               });
             };
 
-            if (dsMetadata?.source_url?.includes('minio:9000')) {
+            if (dsMetadata?.source_url?.includes('minio:9900')) {
               console.log('dsMetadata', dsMetadata);
             }
             await Promise.all([

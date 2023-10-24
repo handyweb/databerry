@@ -54,5 +54,9 @@
     "tsc-files": "^1.1.4",
     "turbo": "^1.10.14"
   },
-  "packageManager": "pnpm@8.7.5"
+  "packageManager": "pnpm@8.7.5",
+  "dependencies": {
+    "dotenv-cli": "^7.3.0",
+    "prisma": "^5.4.2"
+  }
 }

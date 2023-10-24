@@ -79,7 +79,7 @@ services:
   minio:
     image: 'minio/minio:latest'
     ports:
-      - '9000:9000'
+      - '9900:9900'
       - '9090:9090'
     environment:
       MINIO_ROOT_USER: 'root'
